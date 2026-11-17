@@ -1,0 +1,32 @@
+{
+  "name": "omp-jailbreak",
+  "version": "0.1.0",
+  "description": "OMP extension: syncs the jailbreaks profile repo and injects the matching model profile into every prompt.",
+  "type": "module",
+  "license": "MIT",
+  "files": [
+    "extensions",
+    "src",
+    "README.md"
+  ],
+  "keywords": [
+    "omp",
+    "pi-package",
+    "pi-extension",
+    "jailbreak",
+    "system-prompt"
+  ],
+  "scripts": {
+    "test": "bun test"
+  },
+  "omp": {
+    "extensions": [
+      "./extensions/jailbreak.ts"
+    ]
+  },
+  "pi": {
+    "extensions": [
+      "./extensions/jailbreak.ts"
+    ]
+  }
+}
