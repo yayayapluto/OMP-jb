@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readProfile, renderInjection, type ProfileCache } from "../src/core.ts";
-import { logEvent, pluginLogPath, redact } from "../src/log.ts";
+import { logEvent, pluginLogPath } from "../src/log.ts";
 
 const SECRET = "sensitive_profile_payload_DO_NOT_LOG";
 
@@ -26,7 +26,7 @@ describe("plugin log", () => {
 		process.env.OMP_JAILBREAK_DIR = work;
 		delete process.env.OMP_PLUGIN_LOG;
 
-		const safe = redact({
+		logEvent("info", "profile_injected", {
 			model: "deepseek-v4.1-flash",
 			credentials: SECRET,
 			api_key: SECRET,
@@ -35,7 +35,6 @@ describe("plugin log", () => {
 			stack: new Error(SECRET).stack,
 			long: "x".repeat(250),
 		});
-		logEvent("info", "profile_injected", safe);
 
 		const raw = await readFile(pluginLogPath(), "utf8");
 		const lines = raw.trimEnd().split("\n");
@@ -47,7 +46,7 @@ describe("plugin log", () => {
 		expect(entry.version).toBe("0.2.0");
 		expect(entry.ts).toBe(new Date(entry.ts).toISOString());
 		expect(entry.model).toBe("deepseek-v4.1-flash");
-		expect(entry.long).toHaveLength(203);
+		expect(entry.long).toHaveLength(200);
 		expect(raw).not.toContain(SECRET);
 		expect(raw).not.toContain("stack");
 		expect("credentials" in entry).toBe(false);

@@ -80,8 +80,9 @@ function syncSuccess(result: SyncResult): SyncResult {
 }
 
 function syncFailure(error: unknown): SyncResult {
-	logEvent("warn", "sync_failed", { status: "offline", error: safeErrorMessage(error) });
-	return { status: "offline", error: errorMessage(error) };
+	const errorName = error instanceof Error ? error.name : "UnknownError";
+	logEvent("warn", "sync_failed", { status: "offline", reason: "git_failed", error_name: errorName });
+	return { status: "offline", error: "git_failed" };
 }
 
 /** All profile markdown files, relative to the repo root, POSIX separators. */

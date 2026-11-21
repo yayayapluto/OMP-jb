@@ -20,7 +20,7 @@ export function pluginLogPath(): string {
 
 
 function safeValue(value: unknown, depth: number): unknown {
-	if (typeof value === "string") return value.length > MAX_STRING ? `${value.slice(0, MAX_STRING)}...` : value;
+	if (typeof value === "string") return value.length > MAX_STRING ? value.slice(0, MAX_STRING) : value;
 	if (typeof value === "number" || typeof value === "boolean" || value === null) return value;
 	if (Array.isArray(value)) {
 		if (depth >= MAX_DEPTH) return [];
@@ -51,7 +51,7 @@ export function safeErrorMessage(error: unknown): string {
 		.replace(/(?:[A-Za-z]:)?[\\/][^\s"']+/g, "[path]")
 		.trim();
 	const message = cleaned || "unknown_error";
-	return message.length > MAX_STRING ? `${message.slice(0, MAX_STRING)}...` : message;
+	return message.length > MAX_STRING ? message.slice(0, MAX_STRING) : message;
 }
 
 export function logEvent(level: LogLevel, event: string, metadata: Record<string, unknown> = {}): void {
