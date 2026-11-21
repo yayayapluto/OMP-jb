@@ -1,18 +1,15 @@
 import { execFile } from "node:child_process";
 import { existsSync, type Dirent } from "node:fs";
 import { mkdir, readFile, readdir, stat } from "node:fs/promises";
-import { homedir } from "node:os";
+import { defaultStateDir, logEvent, safeErrorMessage } from "./log.ts";
 import { basename, dirname, join, relative, sep } from "node:path";
 import { promisify } from "node:util";
 
 export const REPO_URL = "https://github.com/togg53192-cmd/jailbreaks.git";
+export { defaultStateDir };
 
 const run = promisify(execFile);
 
-/** Root that holds the cached clone. Override for tests or a custom location. */
-export function defaultStateDir(): string {
-	return process.env.OMP_JAILBREAK_DIR ?? join(homedir(), ".omp", "jailbreak-omp");
-}
 
 export function repoDir(stateDir = defaultStateDir()): string {
 	return join(stateDir, "repo");
@@ -42,13 +39,15 @@ async function git(cwd: string | undefined, args: string[]): Promise<string> {
  * rewrite is resolved by resetting the cache to the fetched head.
  */
 export async function syncRepo(dir = repoDir(), url = REPO_URL): Promise<SyncResult> {
-	if (!existsSync(join(dir, ".git"))) {
+	const hasClone = existsSync(join(dir, ".git"));
+	logEvent("info", "sync_attempted", { mode: hasClone ? "fetch" : "clone" });
+	if (!hasClone) {
 		await mkdir(dirname(dir), { recursive: true });
 		try {
 			await git(undefined, ["clone", "--depth", "1", "--single-branch", url, dir]);
-			return { status: "cloned", head: await git(dir, ["rev-parse", "--short", "HEAD"]) };
+			return syncSuccess({ status: "cloned", head: await git(dir, ["rev-parse", "--short", "HEAD"]) });
 		} catch (error) {
-			return { status: "offline", error: errorMessage(error) };
+			return syncFailure(error);
 		}
 	}
 
@@ -57,22 +56,32 @@ export async function syncRepo(dir = repoDir(), url = REPO_URL): Promise<SyncRes
 		await git(dir, ["fetch", "--depth", "1", "origin", "HEAD"]);
 		const fetched = await git(dir, ["rev-parse", "FETCH_HEAD"]);
 		if (before === fetched) {
-			return { status: "current", head: before.slice(0, 7) };
+			return syncSuccess({ status: "current", head: before.slice(0, 7) });
 		}
 		try {
 			await git(dir, ["merge", "--ff-only", "-q", "FETCH_HEAD"]);
 		} catch {
 			await git(dir, ["reset", "--hard", "-q", "FETCH_HEAD"]);
 		}
-		return { status: "updated", head: fetched.slice(0, 7) };
+		return syncSuccess({ status: "updated", head: fetched.slice(0, 7) });
 	} catch (error) {
-		return { status: "offline", error: errorMessage(error) };
+		return syncFailure(error);
 	}
 }
 
 function errorMessage(error: unknown): string {
 	if (error instanceof Error) return error.message;
 	return String(error);
+}
+
+function syncSuccess(result: SyncResult): SyncResult {
+	logEvent("info", "sync_succeeded", { status: result.status, head: result.head });
+	return result;
+}
+
+function syncFailure(error: unknown): SyncResult {
+	logEvent("warn", "sync_failed", { status: "offline", error: safeErrorMessage(error) });
+	return { status: "offline", error: errorMessage(error) };
 }
 
 /** All profile markdown files, relative to the repo root, POSIX separators. */
@@ -263,7 +272,9 @@ export async function readProfile(
 	const absolute = join(dir, ...relPath.split("/"));
 	const info = await stat(absolute);
 	const cached = cache.get(absolute);
-	if (cached && cached.mtimeMs === info.mtimeMs && cached.size === info.size) {
+	const hit = cached !== undefined && cached.mtimeMs === info.mtimeMs && cached.size === info.size;
+	logEvent("info", hit ? "cache_hit" : "cache_miss", { rel_path: relPath, size: info.size });
+	if (hit && cached) {
 		return { text: cached.text, relPath };
 	}
 	const text = await readFile(absolute, "utf8");
