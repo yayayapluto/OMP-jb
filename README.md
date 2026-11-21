@@ -219,33 +219,41 @@ path, so the result is deterministic.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `OMP_JAILBREAK_DIR` | `~/.omp/jailbreak-omp` | Cache root. The clone lives at `<root>/repo`. |
+| `OMP_JAILBREAK_DIR` | `~/.omp/jailbreak-omp` | Cache root. The clone lives at `<root>/repo` and the log at `<root>/plugin.log`. |
+| `OMP_PLUGIN_LOG` | unset (enabled) | Set to `0` to disable all plugin file logging in the process. |
 
 There is no config file and no model mapping to maintain; selection is fully automatic. Env vars
-other than `OMP_JAILBREAK_DIR` are not read.
+other than `OMP_JAILBREAK_DIR` and `OMP_PLUGIN_LOG` are not read.
 
 ## What it reads and writes
 
 | Path / variable | Access | Purpose |
 | --- | --- | --- |
 | `OMP_JAILBREAK_DIR` | read | Overrides the cache root |
+| `OMP_PLUGIN_LOG` | read | `0` disables JSONL logging |
 | `~/.omp/jailbreak-omp/repo` | write (git clone/fetch/merge/reset) | Cached clone of the profile repo |
 | `<root>/repo/**/*.md` | read | Profile candidates (depth ≤ 4, dotfiles and root `README.md` skipped) |
 | `~/.omp/jailbreak-omp/repo/.git` | read | Presence decides clone vs. fetch |
+| `~/.omp/jailbreak-omp/plugin.log` | write (append) | JSONL event log |
 | `git` on `PATH` | execute | All repository operations, 25 s timeout each |
 
-No other files are touched. Git runs with `GIT_TERMINAL_PROMPT=0` and an empty `GIT_ASKPASS`, so it
-never blocks waiting for credentials. No ports are opened and no credentials are read.
+Apart from that log, no other files are touched. Git runs with `GIT_TERMINAL_PROMPT=0` and an empty
+`GIT_ASKPASS`, so it never blocks waiting for credentials. No ports are opened and no credentials
+are read.
 
 ## Architecture
 
 ```text
 OMP-jb/
+├── .githooks/
+│   └── pre-commit       # runs bun test before each commit
 ├── extensions/
 │   └── jailbreak.ts     # OMP handlers: session_start, before_agent_start, session_shutdown, /jailbreak
 ├── src/
-│   └── core.ts          # repo URL, state dir, git sync, profile scan, resolver, cache, injection block
+│   ├── core.ts          # repo URL, state dir, git sync, profile scan, resolver, cache, injection block
+│   └── log.ts           # JSONL event writer, redaction, state-dir resolution
 ├── test/
+│   ├── log.test.ts      # JSONL shape, redaction, no profile payload on disk
 │   ├── resolve.test.ts  # resolver ranking and family separation
 │   └── sync.test.ts     # clone → update → current against a local bare origin
 ├── package.json         # name, scripts.test, omp.extensions entry
@@ -282,9 +290,10 @@ syncRepo(dir)
 bun test
 ```
 
-Current result: 7 tests across 2 files, 11 assertions (`resolve.test.ts`, `sync.test.ts`). The sync
+Current result: 10 tests across 3 files (`resolve.test.ts`, `sync.test.ts`, `log.test.ts`). The sync
 test builds a throwaway bare repository in the OS temp dir and exercises clone, update and
-already-current; it does not need the real upstream repo.
+already-current; it does not need the real upstream repo. The log test writes to a temporary state
+dir and checks JSONL shape, redaction, the kill switch and that profile text never reaches disk.
 
 Loading the extension in a real session:
 
@@ -314,6 +323,9 @@ omp --no-extensions -e ./extensions/jailbreak.ts -p "Reply with exactly: ok"
 - Git commands use a fixed URL (`https://github.com/togg53192-cmd/jailbreaks.git`), fixed arguments
   and no shell interpolation. `GIT_TERMINAL_PROMPT=0` prevents interactive credential prompts.
 - The plugin opens no listener and reads no credentials, cookies or model configuration.
+- `plugin.log` records metadata only: event names, model ids, relative profile paths, scores, counts,
+  status and short head SHAs. Profile text, prompts, model output, CLI output bodies, headers and
+  credentials are never written to it. Set `OMP_PLUGIN_LOG=0` to disable the log entirely.
 
 ## License
 

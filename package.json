@@ -1,6 +1,6 @@
 {
   "name": "omp-jailbreak",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "OMP extension: syncs the jailbreaks profile repo and injects the matching model profile into every prompt.",
   "type": "module",
   "license": "MIT",

@@ -6,7 +6,13 @@ import { join } from "node:path";
 import { listProfiles, syncRepo } from "../src/core.ts";
 
 const work = await mkdtemp(join(tmpdir(), "omp-jailbreak-sync-"));
-afterAll(() => rm(work, { recursive: true, force: true }));
+const originalDir = process.env.OMP_JAILBREAK_DIR;
+process.env.OMP_JAILBREAK_DIR = work;
+afterAll(async () => {
+	if (originalDir === undefined) delete process.env.OMP_JAILBREAK_DIR;
+	else process.env.OMP_JAILBREAK_DIR = originalDir;
+	await rm(work, { recursive: true, force: true });
+});
 
 function git(cwd: string, ...args: string[]): string {
 	return execFileSync("git", args, {
