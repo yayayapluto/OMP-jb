@@ -55,6 +55,26 @@ describe("plugin log", () => {
 		expect("token" in entry.nested).toBe(false);
 	});
 
+	test("redacts generic payload and prompt keys", async () => {
+		work = await mkdtemp(join(tmpdir(), "omp-jb-log-"));
+		process.env.OMP_JAILBREAK_DIR = work;
+		delete process.env.OMP_PLUGIN_LOG;
+
+		logEvent("info", "smoke", {
+			model: "big-pickle",
+			payload: "SECRET_PAYLOAD",
+			prompt: "SECRET_PROMPT",
+		});
+
+		const raw = await readFile(pluginLogPath(), "utf8");
+		const entry = JSON.parse(raw.trimEnd().split("\n")[0]);
+		expect(raw).not.toContain("SECRET_PAYLOAD");
+		expect(raw).not.toContain("SECRET_PROMPT");
+		expect("payload" in entry).toBe(false);
+		expect("prompt" in entry).toBe(false);
+		expect(entry.model).toBe("big-pickle");
+	});
+
 	test("never writes profile text from an injected profile", async () => {
 		work = await mkdtemp(join(tmpdir(), "omp-jb-log-"));
 		process.env.OMP_JAILBREAK_DIR = work;
