@@ -6,7 +6,8 @@ export type LogLevel = "info" | "warn" | "error";
 
 const PLUGIN = "omp-jailbreak";
 const VERSION = "0.2.0";
-const SENSITIVE_KEY = /token|secret|password|authorization|cookie|api[-_]?key|credential/i;
+const SENSITIVE_KEY =
+	/token|secret|password|authorization|cookie|api[-_]?key|credential|payload|prompt|profile|messages?|output|response|body|headers|text|content|completion|reasoning/i;
 const MAX_DEPTH = 3;
 const MAX_STRING = 200;
 
