@@ -82,7 +82,7 @@ function syncSuccess(result: SyncResult): SyncResult {
 function syncFailure(error: unknown): SyncResult {
 	const errorName = error instanceof Error ? error.name : "UnknownError";
 	logEvent("warn", "sync_failed", { status: "offline", reason: "git_failed", error_name: errorName });
-	return { status: "offline", error: "git_failed" };
+	return { status: "offline", error: errorMessage(error) };
 }
 
 /** All profile markdown files, relative to the repo root, POSIX separators. */
